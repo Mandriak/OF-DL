@@ -29,6 +29,11 @@ public class DownloadHelper : IDownloadHelper
 {
     private static readonly IDBHelper m_DBHelper;
     private static readonly IFileNameHelper _FileNameHelper;
+    private const string MessageFolder = "messages";
+    private const string ArchivedFolder = "archived";
+    private const string StoriesFolder = "stories";
+    private const string PurchasedFolder = "purchased";
+    private const string GifsFolder = "gifs";
 
     static DownloadHelper()
     {
@@ -104,19 +109,19 @@ public class DownloadHelper : IDownloadHelper
             case ".jpg":
             case ".jpeg":
             case ".png":
-                subdirectory = "/Images";
+                subdirectory = "/images";
                 break;
             case ".mp4":
             case ".avi":
             case ".wmv":
             case ".gif":
             case ".mov":
-                subdirectory = "/Videos";
+                subdirectory = "/videos";
                 break;
             case ".mp3":
             case ".wav":
             case ".ogg":
-                subdirectory = "/Audios";
+                subdirectory = "/audios";
                 break;
         }
 
@@ -154,7 +159,7 @@ public class DownloadHelper : IDownloadHelper
                                                              IFileNameHelper fileNameHelper,
                                                              CustomFileNameOption option)
     {
-        if (string.IsNullOrEmpty(filenameFormat) || postInfo == null || postMedia == null || author == null)
+        if (string.IsNullOrEmpty(filenameFormat) || postInfo == null || postMedia == null)
         {
             return option switch
             {
@@ -644,11 +649,11 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
         {
-            path = $"/Posts/Free/{postInfo.id} {postInfo.postedAt:yyyy-MM-dd HH-mm-ss}";
+            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
         }
         else
         {
-            path = "/Posts/Free";
+            path = "/";
         }
 
         Uri uri = new(url);
@@ -662,7 +667,7 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
         {
-            path = $"/Posts/Free/{postInfo.id} {postInfo.postedAt:yyyy-MM-dd HH-mm-ss}";
+            path = $"/Posts/Free/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
         }
         else
         {
@@ -680,7 +685,7 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPost && streamInfo != null && streamInfo?.id is not null && streamInfo?.postedAt is not null)
         {
-            path = $"/Posts/Free/{streamInfo.id} {streamInfo.postedAt:yyyy-MM-dd HH-mm-ss}";
+            path = $"/Posts/Free/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
         }
         else
         {
@@ -700,11 +705,11 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
         {
-            path = $"/Messages/Free/{messageInfo.id} {messageInfo.createdAt.Value:yyyy-MM-dd HH-mm-ss}";
+            path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
         else
         {
-            path = "/Messages/Free";
+            path = $"/{MessageFolder}";
         }
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
@@ -715,7 +720,7 @@ public class DownloadHelper : IDownloadHelper
 
     public async Task<bool> DownloadArchivedMedia(string url, string folder, long media_id, ProgressTask task, string filenameFormat, Archived.List messageInfo, Archived.Medium messageMedia, Archived.Author author, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
-        string path = "/Archived/Posts/Free";
+        string path = $"/{ArchivedFolder}";
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
@@ -726,7 +731,7 @@ public class DownloadHelper : IDownloadHelper
 
     public async Task<bool> DownloadStoryMedia(string url, string folder, long media_id, ProgressTask task, Config config, bool showScrapeSize)
     {
-        string path = "/Stories/Free";
+        string path = $"/{StoriesFolder}";
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, filename, config, showScrapeSize);
@@ -737,11 +742,11 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPaidMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
         {
-            path = $"/Messages/Paid/{messageInfo.id} {messageInfo.createdAt.Value:yyyy-MM-dd HH-mm-ss}";
+            path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
         else
         {
-            path = "/Messages/Paid";
+            path = $"/{MessageFolder}";
         }
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
@@ -764,11 +769,11 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPaidPost && messageInfo != null && messageInfo?.id is not null && messageInfo?.postedAt is not null)
         {
-            path = $"/Posts/Paid/{messageInfo.id} {messageInfo.postedAt.Value:yyyy-MM-dd HH-mm-ss}";
+            path = $"/{PurchasedFolder}/{messageInfo.postedAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
         else
         {
-            path = "/Posts/Paid";
+            path = $"/{PurchasedFolder}";
         }
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
@@ -781,7 +786,7 @@ public class DownloadHelper : IDownloadHelper
     {
         try
         {
-            string path = $"/Profile"; // specify the path for the new folder
+            string path = $"/profile"; // specify the path for the new folder
 
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -790,7 +795,7 @@ public class DownloadHelper : IDownloadHelper
 
             if (!string.IsNullOrEmpty(avatarUrl))
             {
-                string avatarpath = $"{path}/Avatars";
+                string avatarpath = $"{path}/avatars";
                 if (!Directory.Exists(folder + avatarpath)) // check if the folder already exists
                 {
                     Directory.CreateDirectory(folder + avatarpath); // create the new folder
@@ -833,7 +838,7 @@ public class DownloadHelper : IDownloadHelper
 
             if (!string.IsNullOrEmpty(headerUrl))
             {
-                string headerpath = $"{path}/Headers";
+                string headerpath = $"{path}/headers";
                 if (!Directory.Exists(folder + headerpath)) // check if the folder already exists
                 {
                     Directory.CreateDirectory(folder + headerpath); // create the new folder
@@ -899,11 +904,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
             {
-                path = $"/Messages/Free/{messageInfo.id} {messageInfo.createdAt.Value:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/{MessageFolder}/videos/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
             }
             else
             {
-                path = "/Messages/Free/Videos";
+                path = $"/{MessageFolder}/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -983,11 +988,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPaidMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
             {
-                path = $"/Messages/Paid/{messageInfo.id} {messageInfo.createdAt.Value:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/{MessageFolder}/videos/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
             }
             else
             {
-                path = "/Messages/Paid/Videos";
+                path = $"/{MessageFolder}/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -1066,11 +1071,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
             {
-                path = $"/Posts/Free/{postInfo.id} {postInfo.postedAt:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/videos/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
             }
             else
             {
-                path = "/Posts/Free/Videos";
+                path = "/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -1147,11 +1152,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
             {
-                path = $"/Posts/Free/{postInfo.id} {postInfo.postedAt:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/videos/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
             }
             else
             {
-                path = "/Posts/Free/Videos";
+                path = "/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -1228,11 +1233,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && streamInfo != null && streamInfo?.id is not null && streamInfo?.postedAt is not null)
             {
-                path = $"/Posts/Free/{streamInfo.id} {streamInfo.postedAt:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/videos/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}/videos";
             }
             else
             {
-                path = "/Posts/Free/Videos";
+                path = "/videos";
             }
             if (!Directory.Exists(folder + path))
             {
@@ -1310,11 +1315,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPaidPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
             {
-                path = $"/Posts/Paid/{postInfo.id} {postInfo.postedAt.Value:yyyy-MM-dd HH-mm-ss}/Videos";
+                path = $"/{PurchasedFolder}/videos/{postInfo.postedAt.Value:yyyy-MM-dd}_{postInfo.id}";
             }
             else
             {
-                path = "/Posts/Paid/Videos";
+                path = $"/{PurchasedFolder}/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
