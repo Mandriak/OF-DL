@@ -16,12 +16,12 @@ namespace OF_DL.Helpers
         {
             try
             {
-                if (!Directory.Exists(folder + "/Metadata"))
+                if (!Directory.Exists(folder + "/.metadata"))
                 {
-                    Directory.CreateDirectory(folder + "/Metadata");
+                    Directory.CreateDirectory(folder + "/.metadata");
                 }
 
-                string dbFilePath = $"{folder}/Metadata/user_data.db";
+                string dbFilePath = $"{folder}/.metadata/user_data.db";
 
                 // connect to the new database file
                 using SqliteConnection connection = new($"Data Source={dbFilePath}");
@@ -190,7 +190,7 @@ namespace OF_DL.Helpers
         {
             try
             {
-                using SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db");
+                using SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db");
                 connection.Open();
                 using SqliteCommand cmd = new($"SELECT COUNT(*) FROM messages WHERE post_id=@post_id", connection);
                 cmd.Parameters.AddWithValue("@post_id", post_id);
@@ -227,7 +227,7 @@ namespace OF_DL.Helpers
         {
             try
             {
-                using SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db");
+                using SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db");
                 connection.Open();
                 using SqliteCommand cmd = new($"SELECT COUNT(*) FROM posts WHERE post_id=@post_id", connection);
                 cmd.Parameters.AddWithValue("@post_id", post_id);
@@ -263,7 +263,7 @@ namespace OF_DL.Helpers
         {
             try
             {
-                using SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db");
+                using SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db");
                 connection.Open();
                 using SqliteCommand cmd = new($"SELECT COUNT(*) FROM stories WHERE post_id=@post_id", connection);
                 cmd.Parameters.AddWithValue("@post_id", post_id);
@@ -299,7 +299,7 @@ namespace OF_DL.Helpers
         {
             try
             {
-                using SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db");
+                using SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db");
                 connection.Open();
                 using SqliteCommand cmd = new($"SELECT COUNT(*) FROM medias WHERE media_id={media_id}", connection);
                 int count = Convert.ToInt32(cmd.ExecuteScalar());
@@ -329,7 +329,7 @@ namespace OF_DL.Helpers
             try
             {
                 bool downloaded = false;
-                using (SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db"))
+                using (SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db"))
                 {
                     connection.Open();
                     using SqliteCommand cmd = new($"SELECT downloaded FROM medias WHERE media_id={media_id}", connection);
@@ -354,7 +354,7 @@ namespace OF_DL.Helpers
 
         public async Task UpdateMedia(string folder, long media_id, string directory, string filename, long size, bool downloaded, DateTime created_at)
         {
-            using SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db");
+            using SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db");
             connection.Open();
 
             // Construct the update command
@@ -378,7 +378,7 @@ namespace OF_DL.Helpers
         public async Task<long> GetStoredFileSize(string folder, long media_id)
         {
             long size;
-            using (SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db"))
+            using (SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db"))
             {
                 connection.Open();
                 using SqliteCommand cmd = new($"SELECT size FROM medias WHERE media_id={media_id}", connection);
@@ -390,7 +390,7 @@ namespace OF_DL.Helpers
         public async Task<DateTime?> GetMostRecentPostDate(string folder)
         {
             DateTime? mostRecentDate = null;
-            using (SqliteConnection connection = new($"Data Source={folder}/Metadata/user_data.db"))
+            using (SqliteConnection connection = new($"Data Source={folder}/.metadata/user_data.db"))
             {
                 connection.Open();
                 using SqliteCommand cmd = new(@"

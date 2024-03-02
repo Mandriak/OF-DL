@@ -55,6 +55,7 @@ public class DownloadHelper : IDownloadHelper
     /// <param name="generalMedia"></param>
     /// <param name="generalAuthor"></param>
     /// <param name="users"></param>
+    /// <param name="extension">Allows a different behavior for the standard posts</param>
     /// <returns></returns>
     public static async Task<bool> CreateDirectoriesAndDownloadMedia(string path,
                                                                      string url,
@@ -64,18 +65,22 @@ public class DownloadHelper : IDownloadHelper
                                                                      string serverFileName,
                                                                      string resolvedFileName,
                                                                      Config config,
-                                                                     bool showScrapeSize)
+                                                                     bool showScrapeSize,
+                                                                     bool isPost,
+                                                                     string mediaType)
     {
         try
         {
             string customFileName = string.Empty;
+            
+            string extension = Path.GetExtension(url.Split("?")[0]);
+
+            path = UpdatePathBasedOnExtension(folder, path, extension, isPost, mediaType);
+
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
                 Directory.CreateDirectory(folder + path); // create the new folder
             }
-            string extension = Path.GetExtension(url.Split("?")[0]);
-
-            path = UpdatePathBasedOnExtension(folder, path, extension);
 
             return await ProcessMediaDownload(folder, media_id, url, path, serverFileName, resolvedFileName, extension, config, task, showScrapeSize);
         }
@@ -99,8 +104,9 @@ public class DownloadHelper : IDownloadHelper
     /// <param name="folder">The parent folder.</param>
     /// <param name="path">The initial relative path.</param>
     /// <param name="extension">The file extension.</param>
+    /// <param name="extension">Allows a different behavior for the standard posts</param>
     /// <returns>A string that represents the updated path based on the file extension.</returns>
-    private static string UpdatePathBasedOnExtension(string folder, string path, string extension)
+    private static string UpdatePathBasedOnExtension(string folder, string path, string extension, bool isPost, string mediaType)
     {
         string subdirectory = string.Empty;
 
@@ -109,14 +115,18 @@ public class DownloadHelper : IDownloadHelper
             case ".jpg":
             case ".jpeg":
             case ".png":
-                subdirectory = "/images";
+                subdirectory = "/photos";
                 break;
             case ".mp4":
+                subdirectory = mediaType == "gif" ? "/gifs" : "/videos";
+                break;
             case ".avi":
             case ".wmv":
-            case ".gif":
             case ".mov":
                 subdirectory = "/videos";
+                break;
+            case ".gif":
+                subdirectory = "/gifs";
                 break;
             case ".mp3":
             case ".wav":
@@ -127,7 +137,16 @@ public class DownloadHelper : IDownloadHelper
 
         if (!string.IsNullOrEmpty(subdirectory))
         {
-            path += subdirectory;
+            if (isPost)
+            {
+                path = $"{subdirectory}{path}";
+            }
+            else
+            {
+                path += subdirectory;
+            }
+
+           
             string fullPath = folder + path;
 
             if (!Directory.Exists(fullPath))
@@ -651,6 +670,10 @@ public class DownloadHelper : IDownloadHelper
         {
             path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
         }
+        else if (IsImage(url) && postInfo != null && postInfo.media.Count > 1)
+        {
+            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+        }
         else
         {
             path = "/";
@@ -660,50 +683,55 @@ public class DownloadHelper : IDownloadHelper
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, postInfo, postMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true, postMedia?.type);
     }
     public async Task<bool> DownloadPostMedia(string url, string folder, long media_id, ProgressTask task, string? filenameFormat, SinglePost? postInfo, SinglePost.Medium? postMedia, SinglePost.Author? author, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
         string path;
         if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
         {
-            path = $"/Posts/Free/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+        }
+        else if (IsImage(url) && postInfo != null && postInfo.media.Count > 1)
+        {
+            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
         }
         else
         {
-            path = "/Posts/Free";
+            path = "/";
         }
 
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, postInfo, postMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize,true, postMedia?.type!);
     }
     public async Task<bool> DownloadStreamMedia(string url, string folder, long media_id, ProgressTask task, string? filenameFormat, Streams.List? streamInfo, Streams.Medium? streamMedia, Streams.Author? author, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
         string path;
         if (config.FolderPerPost && streamInfo != null && streamInfo?.id is not null && streamInfo?.postedAt is not null)
         {
-            path = $"/Posts/Free/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
+            path = $"/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
         }
         else
         {
-            path = "/Posts/Free";
+            path = "/";
         }
 
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, streamInfo, streamMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true, streamMedia?.type!);
     }
 
 
     public async Task<bool> DownloadMessageMedia(string url, string folder, long media_id, ProgressTask task, string filenameFormat, Messages.List messageInfo, Messages.Medium messageMedia, Messages.FromUser fromUser, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
         string path;
-        if (config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
+
+        if (IsImage(url) && config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
         {
             path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
@@ -714,7 +742,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
     }
 
 
@@ -724,7 +752,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
     }
 
 
@@ -734,7 +762,7 @@ public class DownloadHelper : IDownloadHelper
         string path = $"/{StoriesFolder}";
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, filename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, filename, config, showScrapeSize, false, string.Empty);
     }
 
     public async Task<bool> DownloadPurchasedMedia(string url, string folder, long media_id, ProgressTask task, string filenameFormat, Purchased.List messageInfo, Purchased.Medium messageMedia, Purchased.FromUser fromUser, Dictionary<string, int> users, Config config, bool showScrapeSize)
@@ -742,16 +770,16 @@ public class DownloadHelper : IDownloadHelper
         string path;
         if (config.FolderPerPaidMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
         {
-            path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
+            path = $"/{PurchasedFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
         else
         {
-            path = $"/{MessageFolder}";
+            path = $"/{PurchasedFolder}";
         }
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
     }
 
     public async Task<bool> DownloadPurchasedPostMedia(string url,
@@ -778,7 +806,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia.type);
     }
 
     #endregion
@@ -988,11 +1016,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPaidMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
             {
-                path = $"/{MessageFolder}/videos/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
+                path = $"/{PurchasedFolder}/videos/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
             }
             else
             {
-                path = $"/{MessageFolder}/videos";
+                path = $"/{PurchasedFolder}/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -1152,11 +1180,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
             {
-                path = $"/videos/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+                path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
             }
             else
             {
-                path = "/videos";
+                path = "/";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -1233,7 +1261,7 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && streamInfo != null && streamInfo?.id is not null && streamInfo?.postedAt is not null)
             {
-                path = $"/videos/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}/videos";
+                path = $"/videos/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
             }
             else
             {
@@ -1396,7 +1424,7 @@ public class DownloadHelper : IDownloadHelper
             string customFileName = string.Empty;
             Uri uri = new(url);
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
-            string path = "/Archived/Posts/Free/Videos";
+            string path = $"/{ArchivedFolder}/videos";
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
                 Directory.CreateDirectory(folder + path); // create the new folder
@@ -1463,4 +1491,11 @@ public class DownloadHelper : IDownloadHelper
         return false;
     }
     #endregion
+
+    private bool IsImage(string url)
+    {
+        var extensions = new[] { ".jpeg", ".jpg", ".jpeg", ".webp" };
+        var extension = Path.GetExtension(url.Split("?")[0]);
+        return extensions.Contains(extension);
+    }
 }
