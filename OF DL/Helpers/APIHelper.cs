@@ -420,7 +420,7 @@ public class APIHelper : IAPIHelper
     }
 
 
-    public async Task<Dictionary<long, string>> GetMedia(MediaType mediatype,
+    public async Task<Dictionary<long, HighLightsStoriesPosts>> GetMedia(MediaType mediatype,
                                                          string endpoint,
                                                          string? username,
                                                          string folder,
@@ -430,7 +430,7 @@ public class APIHelper : IAPIHelper
     {
         try
         {
-            Dictionary<long, string> return_urls = new();
+            Dictionary<long, HighLightsStoriesPosts> return_urls = new();
             int post_limit = 50;
             int limit = 5;
             int offset = 0;
@@ -500,7 +500,11 @@ public class APIHelper : IAPIHelper
                             {
                                 if (!return_urls.ContainsKey(medium.id))
                                 {
-                                    return_urls.Add(medium.id, medium.files.source.url);
+                                    return_urls.Add(medium.id, new HighLightsStoriesPosts
+                                    {
+                                        Url = medium.files.source.url,
+                                        StoryMedium = medium
+                                    });
                                 }
                             }
                         }
@@ -586,7 +590,11 @@ public class APIHelper : IAPIHelper
                                     }
                                     if (!return_urls.ContainsKey(medium.id))
                                     {
-                                        return_urls.Add(medium.id, item.media[0].files.source.url);
+                                        return_urls.Add(medium.id, new HighLightsStoriesPosts
+                                        {
+                                            Url = item.media[0].files.source.url,
+                                            HighlightMedium = item.media[0]
+                                        });
                                     }
                                 }
                             }

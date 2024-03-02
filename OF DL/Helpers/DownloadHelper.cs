@@ -67,6 +67,7 @@ public class DownloadHelper : IDownloadHelper
                                                                      Config config,
                                                                      bool showScrapeSize,
                                                                      bool isPost,
+                                                                     bool isMessage,
                                                                      string mediaType)
     {
         try
@@ -75,7 +76,7 @@ public class DownloadHelper : IDownloadHelper
             
             string extension = Path.GetExtension(url.Split("?")[0]);
 
-            path = UpdatePathBasedOnExtension(folder, path, extension, isPost, mediaType);
+            path = UpdatePathBasedOnExtension(folder, path, extension, isPost, isMessage, mediaType);
 
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {
@@ -106,7 +107,7 @@ public class DownloadHelper : IDownloadHelper
     /// <param name="extension">The file extension.</param>
     /// <param name="extension">Allows a different behavior for the standard posts</param>
     /// <returns>A string that represents the updated path based on the file extension.</returns>
-    private static string UpdatePathBasedOnExtension(string folder, string path, string extension, bool isPost, string mediaType)
+    private static string UpdatePathBasedOnExtension(string folder, string path, string extension, bool isPost, bool isMessage, string mediaType)
     {
         string subdirectory = string.Empty;
 
@@ -134,13 +135,30 @@ public class DownloadHelper : IDownloadHelper
                 subdirectory = "/audios";
                 break;
         }
-
+        //   "/messages/2021-12-19_330347459427"
+        // "/photos"
+        // //messages/photos/2021...
         if (!string.IsNullOrEmpty(subdirectory))
         {
             if (isPost)
             {
                 path = $"{subdirectory}{path}";
             }
+            else if (isMessage)
+            {
+                var splittedPath = path.Split("/");
+                if (splittedPath.Length > 2)
+                {
+                    var lastPart = $"/{splittedPath.Last()}";
+                    path = $"{path.Replace(lastPart, string.Empty)}{subdirectory}{lastPart}";
+                }
+                else
+                {
+                    path += subdirectory;
+                }
+            }
+                
+                
             else
             {
                 path += subdirectory;
@@ -398,6 +416,19 @@ public class DownloadHelper : IDownloadHelper
 
         string fullPathWithTheServerFileName = $"{folder}{path}/{serverFilename}{extension}";
         string fullPathWithTheNewFileName = $"{folder}{path}/{resolvedFilename}{extension}";
+        string fullPathExistingFileWithBadDate = string.Empty;
+        var enableSpecialCheck = false;
+        var splitResolvedName = resolvedFilename.Split("_");
+        if (splitResolvedName.Length == 2)
+        {
+            var files = Directory.GetFiles($"{folder}{path}", $"*_{splitResolvedName[1]}.*");
+            //if more than 1, we give up and accept our fate
+            enableSpecialCheck = files.Length == 1;
+            if (enableSpecialCheck)
+            {
+                fullPathExistingFileWithBadDate = files[0];
+            }
+        }
 
         //there are a few possibilities here.
         //1.file has been downloaded in the past but it has the server filename
@@ -443,13 +474,32 @@ public class DownloadHelper : IDownloadHelper
             }
             status = false;
         }
-        // Handle the case where the file has been downloaded in the past with a custom filename.
+        //Handle the case where the file has been downloaded in the past with a custom filename.
         //but it has downloaded outsite of this application so it doesn't exist in the database
-        // this is a bit improbable but we should check for that.
+        //this is a bit improbable but we should check for that.
+        //Not that improbable when you migrate from one system to another like me ;)
         else if (File.Exists(fullPathWithTheNewFileName))
         {
             fileSizeInBytes = GetLocalFileSize(fullPathWithTheNewFileName);
             lastModified = File.GetLastWriteTime(fullPathWithTheNewFileName);
+            if (showScrapeSize)
+            {
+                task.Increment(fileSizeInBytes);
+            }
+            else
+            {
+                task.Increment(1);
+            }
+            status = false;
+        }
+        //Special case where the date might change depending on the system (in my case when the file was posted around midnight so it might be another day depending on the system it's run on.
+        //Especially in my case where I imported my existing files from another system. The mediaid should be unique so
+        //I'll risk a false positive here for the sake of convenience
+        //Also it doesn't check for the folder so we might have an empty folder but folders doesn't take that much space on my disk so....
+        else if (enableSpecialCheck)
+        {
+            fileSizeInBytes = GetLocalFileSize(fullPathExistingFileWithBadDate);
+            lastModified = File.GetLastWriteTime(fullPathExistingFileWithBadDate);
             if (showScrapeSize)
             {
                 task.Increment(fileSizeInBytes);
@@ -683,7 +733,7 @@ public class DownloadHelper : IDownloadHelper
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, postInfo, postMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true, postMedia?.type);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true, false, postMedia?.type);
     }
     public async Task<bool> DownloadPostMedia(string url, string folder, long media_id, ProgressTask task, string? filenameFormat, SinglePost? postInfo, SinglePost.Medium? postMedia, SinglePost.Author? author, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
@@ -705,12 +755,16 @@ public class DownloadHelper : IDownloadHelper
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, postInfo, postMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize,true, postMedia?.type!);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize,true,false, postMedia?.type!);
     }
     public async Task<bool> DownloadStreamMedia(string url, string folder, long media_id, ProgressTask task, string? filenameFormat, Streams.List? streamInfo, Streams.Medium? streamMedia, Streams.Author? author, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
         string path;
         if (config.FolderPerPost && streamInfo != null && streamInfo?.id is not null && streamInfo?.postedAt is not null)
+        {
+            path = $"/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
+        }
+        else if (IsImage(url) && streamInfo != null && streamInfo.media.Count > 1)
         {
             path = $"/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
         }
@@ -723,15 +777,18 @@ public class DownloadHelper : IDownloadHelper
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, streamInfo, streamMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
 
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true, streamMedia?.type!);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, true,false, streamMedia?.type!);
     }
 
 
     public async Task<bool> DownloadMessageMedia(string url, string folder, long media_id, ProgressTask task, string filenameFormat, Messages.List messageInfo, Messages.Medium messageMedia, Messages.FromUser fromUser, Dictionary<string, int> users, Config config, bool showScrapeSize)
     {
         string path;
-
-        if (IsImage(url) && config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
+        if (config.FolderPerMessage && messageInfo != null && messageInfo?.id is not null && messageInfo?.createdAt is not null)
+        {
+            path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
+        }
+        else if (IsImage(url) && messageInfo != null && messageInfo.media.Count > 1)
         {
             path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
         }
@@ -742,7 +799,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, true, messageMedia?.type!);
     }
 
 
@@ -752,17 +809,18 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, author, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false,false, messageMedia?.type!);
     }
 
 
 
-    public async Task<bool> DownloadStoryMedia(string url, string folder, long media_id, ProgressTask task, Config config, bool showScrapeSize)
+    public async Task<bool> DownloadStoryMedia(string url, string folder, long media_id, ProgressTask task, Config config, bool showScrapeSize, string resolvedFilename)
     {
         string path = $"/{StoriesFolder}";
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, filename, config, showScrapeSize, false, string.Empty);
+        if (string.IsNullOrEmpty(resolvedFilename)) resolvedFilename = filename;
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, false, string.Empty);
     }
 
     public async Task<bool> DownloadPurchasedMedia(string url, string folder, long media_id, ProgressTask task, string filenameFormat, Purchased.List messageInfo, Purchased.Medium messageMedia, Purchased.FromUser fromUser, Dictionary<string, int> users, Config config, bool showScrapeSize)
@@ -779,7 +837,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia?.type!);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, false, messageMedia?.type!);
     }
 
     public async Task<bool> DownloadPurchasedPostMedia(string url,
@@ -806,7 +864,7 @@ public class DownloadHelper : IDownloadHelper
         Uri uri = new(url);
         string filename = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
         string resolvedFilename = await GenerateCustomFileName(filename, filenameFormat, messageInfo, messageMedia, fromUser, users, _FileNameHelper, CustomFileNameOption.ReturnOriginal);
-        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false, messageMedia.type);
+        return await CreateDirectoriesAndDownloadMedia(path, url, folder, media_id, task, filename, resolvedFilename, config, showScrapeSize, false,false, messageMedia.type);
     }
 
     #endregion
@@ -1180,11 +1238,11 @@ public class DownloadHelper : IDownloadHelper
             string filename = System.IO.Path.GetFileName(uri.LocalPath).Split(".")[0];
             if (config.FolderPerPost && postInfo != null && postInfo?.id is not null && postInfo?.postedAt is not null)
             {
-                path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+                path = $"/videos/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
             }
             else
             {
-                path = "/";
+                path = "/videos";
             }
             if (!Directory.Exists(folder + path)) // check if the folder already exists
             {

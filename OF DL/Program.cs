@@ -11,6 +11,7 @@ using OF_DL.Enumurations;
 using OF_DL.Helpers;
 using Serilog;
 using Spectre.Console;
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -643,7 +644,7 @@ public class Program
     private static async Task<int> DownloadHighlights(KeyValuePair<string, int> user, int highlightsCount, string path)
     {
         AnsiConsole.Markup($"[red]Getting Highlights\n[/]");
-        Dictionary<long, string> highlights = await m_ApiHelper.GetMedia(MediaType.Highlights, $"/users/{user.Value}/stories/highlights", null, path, Auth!, Config!, paid_post_ids);
+        Dictionary<long, HighLightsStoriesPosts> highlights = await m_ApiHelper.GetMedia(MediaType.Highlights, $"/users/{user.Value}/stories/highlights", null, path, Auth!, Config!, paid_post_ids);
         int oldHighlightsCount = 0;
         int newHighlightsCount = 0;
         if (highlights != null && highlights.Count > 0)
@@ -653,7 +654,7 @@ public class Program
             long totalSize = 0;
             if (Config.ShowScrapeSize)
             {
-                totalSize = await m_DownloadHelper.CalculateTotalFileSize(highlights.Values.ToList(), Auth);
+                totalSize = await m_DownloadHelper.CalculateTotalFileSize(highlights.Values.Select(c => c.Url).ToList(), Auth);
             }
             else
             {
@@ -667,9 +668,16 @@ public class Program
                 var task = ctx.AddTask($"[red]Downloading {highlights.Count} Highlights[/]", autoStart: false);
                 task.MaxValue = totalSize;
                 task.StartTask();
-                foreach (KeyValuePair<long, string> highlightKVP in highlights)
+                foreach (KeyValuePair<long, HighLightsStoriesPosts> highlightKVP in highlights)
                 {
-                    bool isNew = await m_DownloadHelper.DownloadStoryMedia(highlightKVP.Value, path, highlightKVP.Key, task, Config!, Config.ShowScrapeSize);
+                    var resolvedFilename = string.Empty;
+                    if (highlightKVP.Value.HighlightMedium != null)
+                    {
+                        resolvedFilename =
+                            $"{highlightKVP.Value.HighlightMedium.createdAt:yyyy-MM-dd}_{highlightKVP.Value.HighlightMedium.id}";
+                    }
+
+                    bool isNew = await m_DownloadHelper.DownloadStoryMedia(highlightKVP.Value.Url, path, highlightKVP.Key, task, Config!, Config.ShowScrapeSize, resolvedFilename);
                     if (isNew)
                     {
                         newHighlightsCount++;
@@ -694,7 +702,7 @@ public class Program
     private static async Task<int> DownloadStories(KeyValuePair<string, int> user, int storiesCount, string path)
     {
         AnsiConsole.Markup($"[red]Getting Stories\n[/]");
-        Dictionary<long, string> stories = await m_ApiHelper.GetMedia(MediaType.Stories, $"/users/{user.Value}/stories", null, path, Auth!, Config!, paid_post_ids);
+        Dictionary<long, HighLightsStoriesPosts> stories = await m_ApiHelper.GetMedia(MediaType.Stories, $"/users/{user.Value}/stories", null, path, Auth!, Config!, paid_post_ids);
         int oldStoriesCount = 0;
         int newStoriesCount = 0;
         if (stories != null && stories.Count > 0)
@@ -704,7 +712,7 @@ public class Program
             long totalSize = 0;
             if (Config.ShowScrapeSize)
             {
-                totalSize = await m_DownloadHelper.CalculateTotalFileSize(stories.Values.ToList(), Auth);
+                totalSize = await m_DownloadHelper.CalculateTotalFileSize(stories.Values.Select(c => c.Url).ToList(), Auth);
             }
             else
             {
@@ -718,9 +726,16 @@ public class Program
                 var task = ctx.AddTask($"[red]Downloading {stories.Count} Stories[/]", autoStart: false);
                 task.MaxValue = totalSize;
                 task.StartTask();
-                foreach (KeyValuePair<long, string> storyKVP in stories)
+                foreach (KeyValuePair<long, HighLightsStoriesPosts> storyKVP in stories)
                 {
-                    bool isNew = await m_DownloadHelper.DownloadStoryMedia(storyKVP.Value, path, storyKVP.Key, task, Config!, Config.ShowScrapeSize);
+                    var resolvedFilename = string.Empty;
+                    if (storyKVP.Value.StoryMedium != null)
+                    {
+                        resolvedFilename =
+                            $"{storyKVP.Value.StoryMedium.createdAt:yyyy-MM-dd}_{storyKVP.Value.StoryMedium.id}";
+                    }
+
+                    bool isNew = await m_DownloadHelper.DownloadStoryMedia(storyKVP.Value.Url, path, storyKVP.Key, task, Config!, Config.ShowScrapeSize, resolvedFilename);
                     if (isNew)
                     {
                         newStoriesCount++;
