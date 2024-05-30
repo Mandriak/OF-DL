@@ -722,7 +722,22 @@ public class DownloadHelper : IDownloadHelper
         }
         else if (IsImage(url) && postInfo != null && postInfo.media.Count > 1)
         {
-            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+            //Trying to avoid double folder if we already got it from my import
+            var folders = Directory.GetDirectories($"{folder}/photos", $"*_{postInfo.id}");
+            //if more than 1, we give up and accept our fate
+            if (folders.Length == 1)
+            {
+                var existingFolder = folders[0];
+
+                var folderParts = existingFolder.Split("\\");
+
+                path = $"/{folderParts.Last()}";
+            }
+            else
+            {
+                path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+
+            }
         }
         else
         {
@@ -744,7 +759,22 @@ public class DownloadHelper : IDownloadHelper
         }
         else if (IsImage(url) && postInfo != null && postInfo.media.Count > 1)
         {
-            path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+            //Trying to avoid double folder if we already got it from my import
+            var folders = Directory.GetDirectories($"{folder}/photos", $"*_{postInfo.id}");
+            //if more than 1, we give up and accept our fate
+            if (folders.Length == 1)
+            {
+                var existingFolder = folders[0];
+
+                var folderParts = existingFolder.Split("\\");
+
+                path = $"/{folderParts.Last()}";
+            }
+            else
+            {
+                path = $"/{postInfo.postedAt:yyyy-MM-dd}_{postInfo.id}";
+
+            }
         }
         else
         {
@@ -766,7 +796,22 @@ public class DownloadHelper : IDownloadHelper
         }
         else if (IsImage(url) && streamInfo != null && streamInfo.media.Count > 1)
         {
-            path = $"/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
+            //Trying to avoid double folder if we already got it from my import
+            var folders = Directory.GetDirectories($"{folder}/photos", $"*_{streamInfo.id}");
+            //if more than 1, we give up and accept our fate
+            if (folders.Length == 1)
+            {
+                var existingFolder = folders[0];
+
+                var folderParts = existingFolder.Split("\\");
+
+                path = $"/{folderParts.Last()}";
+            }
+            else
+            {
+                path = $"/{streamInfo.postedAt:yyyy-MM-dd}_{streamInfo.id}";
+
+            }
         }
         else
         {
@@ -790,7 +835,21 @@ public class DownloadHelper : IDownloadHelper
         }
         else if (IsImage(url) && messageInfo != null && messageInfo.media.Count > 1)
         {
-            path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
+            //Trying to avoid double folder if we already got it from my import
+            var folders = Directory.GetDirectories($"{folder}/{MessageFolder}/photos", $"*_{messageInfo.id}");
+            //if more than 1, we give up and accept our fate
+            if (folders.Length == 1)
+            {
+                var existingFolder = folders[0];
+                var folderParts = existingFolder.Split("\\");
+
+                path = $"/{MessageFolder}/{folderParts.Last()}";
+            }
+            else
+            {
+                path = $"/{MessageFolder}/{messageInfo.createdAt.Value:yyyy-MM-dd}_{messageInfo.id}";
+
+            }
         }
         else
         {
